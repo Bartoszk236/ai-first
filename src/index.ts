@@ -43,8 +43,11 @@ async function createDirectory(){
 }
 
 async function main() {
+    const startTime = Date.now();
     const directoryPath = `src/requests`;
     await createDirectory();
+    let rejectFile = 0;
+    let acceptFile = 0;
     try {
         const files = await fs.promises.readdir(directoryPath);
 
@@ -52,17 +55,41 @@ async function main() {
 
             const filePath = path.join(directoryPath, file);
 
+
             if (path.extname(file) === '.txt') {
                 const fileString = await fs.promises.readFile(`${filePath}`, "utf8");
-                const response = await summariseText(fileString);
+                const characterCount = fileString.length;
+                if (characterCount < 1000){
+                    const response = await summariseText(fileString);
 
-                const baseName = path.basename(file, '.txt');
-                await fs.promises.writeFile(`responses/${baseName}_summary.txt`, response, "utf8");
+                    const baseName = path.basename(file, '.txt');
+                    await fs.promises.writeFile(`responses/${baseName}_summary.txt`, response, "utf8");
+                    acceptFile++;
+                } else {
+                    console.error(`Za długi plik: ${file}`);
+                    rejectFile++;
+                }
+
+            } else {
+                console.error(`Złe rozszerzenie pliku: ${file}`);
+                rejectFile++;
+
             }
+        }
+        console.log(`Pliki zaakceptowane: ${acceptFile}`)
+        console.log(`Pliki odrzucone: ${rejectFile}`)
+        const endTime = Date.now();
+        const timeTaken = (endTime - startTime) / 1000;
+        console.log(`Operacja zajęła ${timeTaken} sekund.`);
+        const averageTime = timeTaken / acceptFile
+        if (acceptFile === 0){
+            console.log(`Średni czas wykonania poprawnej operacji to: brak poprawnych opercaji`)
+        } else {
+            console.log(`Średni czas wykonania poprawnej operacji to: ${averageTime}`)
         }
     } catch (err) {
         console.error('Wystąpił błąd przy odczytywaniu folderu:', err);
     }
 }
 
-main().then(() => console.log("Done"));
+main().then(() => console.log(`Done`));
