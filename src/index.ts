@@ -49,17 +49,17 @@ async function main() {
     await createDirectory();
     let rejectFile = 0;
     let acceptFile = 0;
-    const maxConcurrent: number = 2;
+    const maxConcurrent: number = 1;
 
     const queue = new VoidQueue(maxConcurrent)
 
     try {
         const files = await fs.promises.readdir(directoryPath);
 
-        for (const file of files){
+        const tasks = files.map((file, index) => {
             const filePath = path.join(directoryPath, file);
 
-            await queue.add(async () => {
+            return queue.add(async () => {
                 if (path.extname(file) === '.txt') {
                     const fileString = await fs.promises.readFile(filePath, "utf8") as string;
                     const characterCount = fileString.length;
@@ -78,7 +78,9 @@ async function main() {
                     rejectFile++;
                 }
             });
-        }
+        });
+
+        await Promise.all(tasks);
 
         console.log(`Pliki zaakceptowane: ${acceptFile}`);
         console.log(`Pliki odrzucone: ${rejectFile}`);
