@@ -49,33 +49,36 @@ async function main() {
     await createDirectory();
     let rejectFile = 0;
     let acceptFile = 0;
+    const maxConcurrent: number = 2;
+
+    const queue = new VoidQueue(maxConcurrent)
 
     try {
         const files = await fs.promises.readdir(directoryPath);
 
-        const filePromises = files.map(async (file) => {
+        for (const file of files){
             const filePath = path.join(directoryPath, file);
 
-            if (path.extname(file) === '.txt') {
-                const fileString = await fs.promises.readFile(filePath, "utf8") as string;
-                const characterCount = fileString.length;
+            await queue.add(async () => {
+                if (path.extname(file) === '.txt') {
+                    const fileString = await fs.promises.readFile(filePath, "utf8") as string;
+                    const characterCount = fileString.length;
 
-                if (characterCount < 1000) {
-                    const response = await summariseText(fileString);
-                    const baseName = path.basename(file, '.txt');
-                    await fs.promises.writeFile(`responses/${baseName}_summary.txt`, response, "utf8");
-                    acceptFile++;
+                    if (characterCount < 1000) {
+                        const response = await summariseText(fileString);
+                        const baseName = path.basename(file, '.txt');
+                        await fs.promises.writeFile(`responses/${baseName}_summary.txt`, response, "utf8");
+                        acceptFile++;
+                    } else {
+                        console.error(`Za długi plik: ${file}`);
+                        rejectFile++;
+                    }
                 } else {
-                    console.error(`Za długi plik: ${file}`);
+                    console.error(`Złe rozszerzenie pliku: ${file}`);
                     rejectFile++;
                 }
-            } else {
-                console.error(`Złe rozszerzenie pliku: ${file}`);
-                rejectFile++;
-            }
-        });
-
-        await Promise.all(filePromises);
+            });
+        }
 
         console.log(`Pliki zaakceptowane: ${acceptFile}`);
         console.log(`Pliki odrzucone: ${rejectFile}`);
@@ -92,6 +95,43 @@ async function main() {
         }
     } catch (err) {
         console.error('Wystąpił błąd przy odczytywaniu folderu:', err);
+    }
+}
+
+class VoidQueue {
+    private tasks: (() => Promise<void>) [] = []
+    private running: number = 0;
+    private maxConcurrent: number;
+
+    constructor(maxConcurrent: number) {
+        this.maxConcurrent = maxConcurrent;
+    }
+
+    async add(task: () => Promise<void>): Promise<void> {
+        return new Promise((resolve, reject) => {
+            this.tasks.push(async () => {
+                try {
+                    await task();
+                    resolve();
+                } catch (err) {
+                    reject(err);
+                }
+            });
+            this.run();
+        });
+    }
+
+    private async run(): Promise<void> {
+        if (this.running >= this.maxConcurrent || this.tasks.length === 0) {
+            return;
+        }
+        const task = this.tasks.shift();
+        if (task) {
+            this.running++;
+            await task();
+            this.running--
+            this.run();
+        }
     }
 }
 
