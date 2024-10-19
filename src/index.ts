@@ -49,7 +49,7 @@ async function main() {
     await createDirectory();
     let rejectFile = 0;
     let acceptFile = 0;
-    const maxConcurrent: number = 1;
+    const maxConcurrent: number = 20;
 
     const queue = new VoidQueue(maxConcurrent)
 
@@ -82,19 +82,26 @@ async function main() {
 
         await Promise.all(tasks);
 
-        console.log(`Pliki zaakceptowane: ${acceptFile}`);
-        console.log(`Pliki odrzucone: ${rejectFile}`);
+        // console.log(`Pliki zaakceptowane: ${acceptFile}`);
+        // console.log(`Pliki odrzucone: ${rejectFile}`);
 
         const endTime = Date.now();
         const timeTaken = (endTime - startTime) / 1000;
-        console.log(`Operacja zajęła ${timeTaken} sekund.`);
+        // console.log(`Operacja zajęła ${timeTaken} sekund.`);
 
         const averageTime = timeTaken / acceptFile;
         if (acceptFile === 0) {
-            console.log(`Średni czas wykonania poprawnej operacji to: brak poprawnych operacji`);
+            // console.log(`Średni czas wykonania poprawnej operacji to: brak poprawnych operacji`);
         } else {
-            console.log(`Średni czas wykonania poprawnej operacji to: ${averageTime}`);
+            // console.log(`Średni czas wykonania poprawnej operacji to: ${averageTime}`);
         }
+        const data = {
+            Pliki_zaakceptowane: acceptFile,
+            Pliki_odrzucone: rejectFile,
+            Czas_opercaji: timeTaken,
+            Średni_czas_opercaji: averageTime,
+        }
+        createJsonFile(data);
     } catch (err) {
         console.error('Wystąpił błąd przy odczytywaniu folderu:', err);
     }
@@ -134,6 +141,23 @@ class VoidQueue {
             this.running--
             this.run();
         }
+    }
+}
+
+async function createJsonFile(data: object) {
+    const filePath = 'src/data.json';
+
+    try {
+        const jsonData = JSON.stringify(data, null, 2);
+
+        await fs.writeFile(filePath, jsonData, `utf8`, err => {
+            if (!err) {
+                return;
+            }
+            console.error(err);
+        });
+    } catch (error) {
+        console.error('Błąd podczas zapisywania pliku:', error);
     }
 }
 
